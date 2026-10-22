@@ -1,7 +1,6 @@
 package org.example.ui;
 
 import org.example.dao.UserDao;
-import org.example.model.Status;
 import org.example.model.User;
 
 import java.util.List;
@@ -23,44 +22,95 @@ public class AdminMenu {
         boolean running = true;
         while (running) {
             System.out.println("\n=== ADMIN MENU (" + currentUser.getUsername() + ") ===");
-            System.out.println("1. Review pending accounts");
-            System.out.println("2. Logout");
+            System.out.println("1. View All System Users");
+            System.out.println("2. View Pending Registrations");
+            System.out.println("3. Approve User Account");
+            System.out.println("4. Logout");
             System.out.print("Choose: ");
 
             switch (scanner.nextLine().trim()) {
-                case "1" -> reviewPending();
-                case "2" -> running = false;
+                case "1" -> viewAllUsers();
+                case "2" -> viewPendingUsers();
+                case "3" -> approveUser();
+                case "4" -> running = false;
                 default -> System.out.println("Invalid choice.");
             }
         }
     }
 
-    private void reviewPending() {
-        List<User> pending = userDao.findByStatus(Status.PENDING);
+    private void viewAllUsers() {
+        System.out.println("\n--- All System Users ---");
+        printUserTable(userDao.getAllUsers());
+    }
+
+    private void viewPendingUsers() {
+        System.out.println("\n--- Pending Registrations ---");
+        printUserTable(userDao.getPendingUsers());
+    }
+
+    private void approveUser() {
+        List<User> pending = userDao.getPendingUsers();
+        System.out.println("\n--- Approve User Account ---");
         if (pending.isEmpty()) {
-            System.out.println("No pending accounts.");
+            System.out.println("No pending accounts to approve.");
             return;
         }
-        for (User u : pending) {
-            System.out.println(u.getId() + " | " + u.getUsername() + " | " + u.getFullName() + " | " + u.getRole());
-        }
-        System.out.print("Enter user ID to review (blank to cancel): ");
-        String input = scanner.nextLine().trim();
-        if (input.isEmpty()) return;
+        printUserTable(pending);
 
-        try {
-            int id = Integer.parseInt(input);
-            System.out.print("(A)pprove or (R)eject? ");
-            String choice = scanner.nextLine().trim().toUpperCase();
-            if (choice.equals("A")) {
-                System.out.println(userDao.updateStatus(id, Status.APPROVED) ? "Approved." : "Failed.");
-            } else if (choice.equals("R")) {
-                System.out.println(userDao.updateStatus(id, Status.REJECTED) ? "Rejected." : "Failed.");
-            } else {
-                System.out.println("Cancelled.");
+        while (true) {
+            System.out.print("Enter User ID to approve (0 to cancel): ");
+            String input = scanner.nextLine().trim();
+
+            int id;
+            try {
+                id = Integer.parseInt(input);
+            } catch (NumberFormatException e) {
+                System.out.println("Please enter a valid number.");
+                continue;
             }
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid ID.");
+
+            if (id == 0) {
+                System.out.println("Approval cancelled.");
+                return;
+            }
+
+            User target = findById(pending, id);
+            if (target == null) {
+                System.out.println("ID " + id + " is not in the pending list. Try again.");
+                continue;
+            }
+
+            if (userDao.approveUser(id)) {
+                System.out.println("SUCCESS: " + target.getUsername() + " (" + target.getRole()
+                        + ") has been APPROVED.");
+            } else {
+                System.out.println("Approval failed. Please try again.");
+            }
+            return;
         }
+    }
+
+    private User findById(List<User> users, int id) {
+        for (User u : users) {
+            if (u.getId() == id) return u;
+        }
+        return null;
+    }
+
+    /** Prints any list of users as an aligned table. */
+    private void printUserTable(List<User> users) {
+        String border = "+-------+-----------------+------------------+------------+";
+        System.out.println(border);
+        System.out.printf("| %-5s | %-15s | %-16s | %-10s |%n", "ID", "Username", "Role", "Status");
+        System.out.println(border);
+        if (users.isEmpty()) {
+            System.out.printf("| %-52s |%n", "No records found.");
+        } else {
+            for (User u : users) {
+                System.out.printf("| %-5d | %-15s | %-16s | %-10s |%n",
+                        u.getId(), u.getUsername(), u.getRole(), u.getStatus());
+            }
+        }
+        System.out.println(border);
     }
 }

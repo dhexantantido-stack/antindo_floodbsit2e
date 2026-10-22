@@ -47,30 +47,40 @@ public class UserDao {
         }
     }
 
-    public List<User> findByStatus(Status status) {
+    public List<User> getAllUsers() {
         List<User> list = new ArrayList<>();
-        String sql = "SELECT * FROM users WHERE status = ? ORDER BY id";
+        String sql = "SELECT * FROM users ORDER BY id";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, status.name());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) list.add(map(rs));
-            }
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(map(rs));
         } catch (SQLException e) {
-            System.out.println("[DB] Query failed: " + e.getMessage());
+            System.out.println("[DB] Could not load users: " + e.getMessage());
         }
         return list;
     }
 
-    public boolean updateStatus(int userId, Status status) {
-        String sql = "UPDATE users SET status = ? WHERE id = ?";
+    public List<User> getPendingUsers() {
+        List<User> list = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE status = 'PENDING' ORDER BY id";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(map(rs));
+        } catch (SQLException e) {
+            System.out.println("[DB] Could not load pending users: " + e.getMessage());
+        }
+        return list;
+    }
+
+    public boolean approveUser(int userId) {
+        String sql = "UPDATE users SET status = 'APPROVED' WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, status.name());
-            ps.setInt(2, userId);
+            ps.setInt(1, userId);
             return ps.executeUpdate() == 1;
         } catch (SQLException e) {
-            System.out.println("[DB] Update failed: " + e.getMessage());
+            System.out.println("[DB] Approve failed: " + e.getMessage());
             return false;
         }
     }
